@@ -8,6 +8,8 @@ import pycocotools.mask as rletools
 
 from PIL import Image
 from multiprocessing import Pool
+sys.path.insert(1, '/home/pkargupta/point_track/PointTrack/datasets/mots_tools/')
+
 from mots_common.io import load_sequences, load_seqmap
 from functools import partial
 from subprocess import call
@@ -95,6 +97,7 @@ def visualize_sequences(seq_id, tracks, max_frames_seq, img_folder, output_folde
         apply_mask(img, binary_mask, color)
 
     ax.imshow(img)
+    #print("Saving figure!!", output_folder + "/" + seq_id + "/%06d" % t + ".jpg")
     fig.savefig(output_folder + "/" + seq_id + "/%06d" % t + ".jpg")
     plt.close(fig)
   if create_video:

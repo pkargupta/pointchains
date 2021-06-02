@@ -6,6 +6,8 @@ import os
 import cv2
 import numpy as np
 import PIL.Image as Image
+import sys
+sys.path.insert(1, '/home/pkargupta/point_track/PointTrack')
 from file_utils import *
 import multiprocessing
 from config import *

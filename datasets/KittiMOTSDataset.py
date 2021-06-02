@@ -195,12 +195,12 @@ class MOTSTrackCarsValOffset(Dataset):
             ids = self.SEQ_IDS_VAL
             timestamps = self.TIMESTEPS_PER_SEQ
             self.image_root = os.path.join(kittiRoot, 'images')
-            self.mots_root = os.path.join(systemRoot, 'SpatialEmbeddings/car_SE_val_prediction')
+            self.mots_root = os.path.join(rootDir, 'car_SE_val_prediction') #NEW: changed path here!
         else:
             ids = self.SEQ_IDS_TEST
             timestamps = self.TIMESTEPS_PER_SEQ_TEST
             self.image_root = os.path.join(kittiRoot, 'testing/image_02/')
-            self.mots_root = os.path.join(systemRoot, 'SpatialEmbeddings/car_SE_test_prediction')
+            self.mots_root = os.path.join(rootDir, 'car_SE_test_prediction') #NEW: Changed path here! This was SpatialEmbedding
 
         print('use ', self.mots_root)
         self.batch_num = 2
@@ -289,6 +289,7 @@ class MOTSTrackCarsValOffset(Dataset):
             rgbs = img_[mask] / 255.0
             pointUVs = np.concatenate([rgbs, vs[:, np.newaxis], us[:, np.newaxis]], axis=1)
             choices = np.random.choice(pointUVs.shape[0], fg_num)
+            # TODO: change choices here to incorporate Shi-Tomasi
             points_fg = pointUVs[choices][np.newaxis, :, :].astype(np.float32)
             points_fg = np.concatenate(
                 [points_fg, np.zeros((points_fg.shape[0], points_fg.shape[1], 3), dtype=np.float32)], axis=-1)
@@ -450,6 +451,9 @@ class MOTSTrackCarsTrain(Dataset):
                 cats = maskX[~mask]
                 cat_embds = self.category_embedding[cats]
                 pointUVs = np.concatenate([rgbs, vs[:, np.newaxis], us[:, np.newaxis], cat_embds], axis=1)
+
+                print('pointUVs shape: ', pointUVs.shape)
+
                 choices = np.random.choice(pointUVs.shape[0], bg_num)
                 points_bg = pointUVs[choices][np.newaxis, :, :].astype(np.float32)
 
@@ -460,14 +464,28 @@ class MOTSTrackCarsTrain(Dataset):
                 vs = (vs_ - vc) / self.offsetMax
                 us = (us_ - uc) / self.offsetMax
                 rgbs = img[mask.astype(np.bool)] / 255.0
+                #TODO: add in shi-tomasi here
+                gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)[mask.astype(np.bool)]
+                corners = cv.goodFeaturesToTrack(gray,int(fg_num*0.5),0.01,10)
+                corners = np.int0(corners)
+                for i in corners:
+                    x,y = i.ravel()
+
                 if self.shift:
                     # us += (random.random() - 0.5) * 0.05  # -0.025~0.025
                     vs += np.random.normal(0, 0.001, size=vs.shape)  # random jitter
                     us += np.random.normal(0, 0.001, size=us.shape)  # random jitter
+
+                graypointUVs = np.concatenate([gray, vs[:, np.newaxis], us[:, np.newaxis]], axis=1)
+                graychoices = np.random.choice(graypointUVs.shape[0], int(fg_num*0.5))
+                print("GRAYPT SHAPE: ", graypointUVs.shape)
+                # get locations of corners in gray image and translate to rgb image
                 pointUVs = np.concatenate([rgbs, vs[:, np.newaxis], us[:, np.newaxis]], axis=1)
-                choices = np.random.choice(pointUVs.shape[0], fg_num)
+                choices = np.random.choice(pointUVs.shape[0], int(fg_num*0.5)) #half; other half is shi tomasi
                 pointUVs = np.concatenate([rgbs, vs[:, np.newaxis], us[:, np.newaxis]], axis=1)
+                # TODO: change choices here to incorporate Shi-Tomasi
                 points_fg = pointUVs[choices][np.newaxis, :, :].astype(np.float32)
+                print()
                 points_fg = np.concatenate(
                     [points_fg, np.zeros((points_fg.shape[0], points_fg.shape[1], 3), dtype=np.float32)], axis=-1)
 

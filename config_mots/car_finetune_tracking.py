@@ -50,9 +50,9 @@ args = dict(
         }
     },
 
-    lr=2e-3,
+    lr=1e-3, #NEW! prev 2e-3
     milestones=[20, 30],
-    n_epochs=35,
+    n_epochs=50, #NEW! prev 35
     start_epoch=1,
 
     max_disparity=192.0,

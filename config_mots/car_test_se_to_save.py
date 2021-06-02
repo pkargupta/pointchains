@@ -19,7 +19,7 @@ args = dict(
     n_sigma=n_sigma,
 
     save=True,
-    checkpoint_path='./pointTrack_weights/best_seed_model.pthCar',
+    checkpoint_path='/home/pkargupta/point_track/PointTrack/pointTrack_weights/best_seed_model.pthCar',
 
     min_pixel=160,
     threshold=0.94,

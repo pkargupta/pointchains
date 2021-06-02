@@ -83,7 +83,6 @@ dColors = [(128, 0, 0), (170, 110, 40), (128, 128, 0), (0, 128, 128), (0, 0, 128
 trackHelper = TrackHelper(args['save_dir'], model.module.margin, alive_car=30, car=args['car'] if 'car' in args.keys() else True,
                           mask_iou=True)
 with torch.no_grad():
-
     for sample in tqdm(dataset_it):
         subf, frameCount = sample['name'][0][:-4].split('/')[-2:]
         frameCount = int(float(frameCount))
@@ -110,5 +109,5 @@ if 'run_eval' in args.keys() and args['run_eval']:
     save_val_dir = args['save_dir'].split('/')[1]
     p = subprocess.run([pythonPath, "-u", "eval.py",
                         os.path.join(rootDir, save_val_dir), kittiRoot + "instances", "val.seqmap"],
-                                   stdout=subprocess.PIPE, cwd=rootDir + "datasets/mots_tools/mots_eval")
+                                   stdout=subprocess.PIPE, cwd=rootDir + "datasets/mots_tools/mots_eval/")
     print(p.stdout.decode("utf-8"))
