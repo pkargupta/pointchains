@@ -9,6 +9,7 @@ import numpy as np
 import math
 from PIL import Image
 from skimage.segmentation import relabel_sequential
+from matplotlib import pyplot as plt
 import torch
 from torch.utils.data import Dataset
 import cv2
@@ -425,6 +426,7 @@ class MOTSTrackCarsTrain(Dataset):
             else:
                 start, end = 0, 1
                 pis = pi[start:end + 1]
+            once = True
             for ii, inst in enumerate(pis):
                 img = inst['img']
                 mask = inst['mask'].astype(np.bool)
@@ -452,8 +454,6 @@ class MOTSTrackCarsTrain(Dataset):
                 cat_embds = self.category_embedding[cats]
                 pointUVs = np.concatenate([rgbs, vs[:, np.newaxis], us[:, np.newaxis], cat_embds], axis=1)
 
-                print('pointUVs shape: ', pointUVs.shape)
-
                 choices = np.random.choice(pointUVs.shape[0], bg_num)
                 points_bg = pointUVs[choices][np.newaxis, :, :].astype(np.float32)
 
@@ -463,29 +463,44 @@ class MOTSTrackCarsTrain(Dataset):
 
                 vs = (vs_ - vc) / self.offsetMax
                 us = (us_ - uc) / self.offsetMax
-                rgbs = img[mask.astype(np.bool)] / 255.0
-                #TODO: add in shi-tomasi here
-                gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)[mask.astype(np.bool)]
-                corners = cv.goodFeaturesToTrack(gray,int(fg_num*0.5),0.01,10)
+                
+                
+                #convert rgb image to gray
+                gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+                
+                # shi-tomasi based on bounding box region
+                corners = cv2.goodFeaturesToTrack(gray,int(fg_num*0.5),0.01,10, mask=mask.astype(np.uint8))
                 corners = np.int0(corners)
+                chosenmask = np.zeros(mask.shape).astype(np.bool)
+                numfeats = 0
+                
                 for i in corners:
-                    x,y = i.ravel()
+                    y,x = i.ravel()
+                    chosenmask[x][y]= True # already chosen features
+                    numfeats += 1
+
+                xormask = np.logical_xor(mask.astype(np.bool), chosenmask.astype(np.bool))
+
+                rgbs_chosen = img[chosenmask.astype(np.bool)] / 255.0
+                rgbs_remaining = img[xormask.astype(np.bool)] / 255.0
+                rgbs = np.concatenate([rgbs_chosen, rgbs_remaining], axis=0)
 
                 if self.shift:
                     # us += (random.random() - 0.5) * 0.05  # -0.025~0.025
                     vs += np.random.normal(0, 0.001, size=vs.shape)  # random jitter
                     us += np.random.normal(0, 0.001, size=us.shape)  # random jitter
 
-                graypointUVs = np.concatenate([gray, vs[:, np.newaxis], us[:, np.newaxis]], axis=1)
-                graychoices = np.random.choice(graypointUVs.shape[0], int(fg_num*0.5))
-                print("GRAYPT SHAPE: ", graypointUVs.shape)
+
                 # get locations of corners in gray image and translate to rgb image
                 pointUVs = np.concatenate([rgbs, vs[:, np.newaxis], us[:, np.newaxis]], axis=1)
-                choices = np.random.choice(pointUVs.shape[0], int(fg_num*0.5)) #half; other half is shi tomasi
+                
+                choices = np.random.choice(np.arange(numfeats, pointUVs.shape[0]), int(fg_num - numfeats)) #half; other half is shi tomasi
+                choices = np.concatenate((np.arange(numfeats), choices))
+                
                 pointUVs = np.concatenate([rgbs, vs[:, np.newaxis], us[:, np.newaxis]], axis=1)
                 # TODO: change choices here to incorporate Shi-Tomasi
                 points_fg = pointUVs[choices][np.newaxis, :, :].astype(np.float32)
-                print()
+                
                 points_fg = np.concatenate(
                     [points_fg, np.zeros((points_fg.shape[0], points_fg.shape[1], 3), dtype=np.float32)], axis=-1)
 
