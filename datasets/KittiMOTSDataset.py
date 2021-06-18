@@ -287,9 +287,40 @@ class MOTSTrackCarsValOffset(Dataset):
 
             vs = (vs_ - vc) / self.offsetMax
             us = (us_ - uc) / self.offsetMax
-            rgbs = img_[mask] / 255.0
+
+            gray = cv2.cvtColor(img_,cv2.COLOR_BGR2GRAY)
+            
+            # shi-tomasi based on bounding box region
+            #print(mask.dtype, mask.sameSize(gray))
+            corners = cv2.goodFeaturesToTrack(gray,int(fg_num*0.5),0.01,10, mask=mask.astype(np.uint8))
+            chosenmask = np.zeros(mask.shape).astype(np.bool)
+            numfeats = 0
+            
+            if corners is not None:
+                corners = np.int0(corners)
+                for i in corners:
+                    y,x = i.ravel()
+                    chosenmask[x][y]= True # already chosen features
+                    numfeats += 1
+
+            xormask = np.logical_xor(mask.astype(np.bool), chosenmask.astype(np.bool))
+
+            rgbs_chosen = img_[chosenmask.astype(np.bool)] / 255.0
+            rgbs_remaining = img_[xormask.astype(np.bool)] / 255.0
+            rgbs = np.concatenate([rgbs_chosen, rgbs_remaining], axis=0)
+
+            # get locations of corners in gray image and translate to rgb image
             pointUVs = np.concatenate([rgbs, vs[:, np.newaxis], us[:, np.newaxis]], axis=1)
-            choices = np.random.choice(pointUVs.shape[0], fg_num)
+            
+            choices = np.random.choice(np.arange(numfeats, pointUVs.shape[0]), int(fg_num - numfeats)) #half; other half is shi tomasi
+            choices = np.concatenate((np.arange(numfeats), choices))
+
+
+            # old:
+            #rgbs = img_[mask] / 255.0
+            #pointUVs = np.concatenate([rgbs, vs[:, np.newaxis], us[:, np.newaxis]], axis=1)
+            #choices = np.random.choice(pointUVs.shape[0], fg_num)
+
             # TODO: change choices here to incorporate Shi-Tomasi
             points_fg = pointUVs[choices][np.newaxis, :, :].astype(np.float32)
             points_fg = np.concatenate(
@@ -470,14 +501,15 @@ class MOTSTrackCarsTrain(Dataset):
                 
                 # shi-tomasi based on bounding box region
                 corners = cv2.goodFeaturesToTrack(gray,int(fg_num*0.5),0.01,10, mask=mask.astype(np.uint8))
-                corners = np.int0(corners)
                 chosenmask = np.zeros(mask.shape).astype(np.bool)
                 numfeats = 0
                 
-                for i in corners:
-                    y,x = i.ravel()
-                    chosenmask[x][y]= True # already chosen features
-                    numfeats += 1
+                if corners is not None:
+                    corners = np.int0(corners)
+                    for i in corners:
+                        y,x = i.ravel()
+                        chosenmask[x][y]= True # already chosen features
+                        numfeats += 1
 
                 xormask = np.logical_xor(mask.astype(np.bool), chosenmask.astype(np.bool))
 
